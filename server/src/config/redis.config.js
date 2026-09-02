@@ -4,28 +4,19 @@ dotenv.config();
 
 const UPSTASH_REDIS_URL = process.env.UPSTASH_REDIS_URL;
 
-const redis = new Redis(UPSTASH_REDIS_URL, {
-    maxRetriesPerRequest: 2,
+if (!UPSTASH_REDIS_URL) {
+    throw new Error('UPSTASH_REDIS_URL is not defined');
+}
 
-    retryStrategy(times) {
-        return Math.min(times * 50, 2000);
-    }
+const globalRedis = globalThis;
+
+const redis = globalRedis.redisClient || new Redis(UPSTASH_REDIS_URL, {
+    maxRetriesPerRequest: 1,
+    enableReadyCheck: false,
+    connectTimeout: 5000,
+    lazyConnect: true
 });
 
-redis.on('connect', () => {
-    console.log(`Connecting to Upstash Redis...`);
-})
-
-redis.on('ready', () => {
-    console.log(`✔️ Connected to Upstash Redis`);
-})
-
-redis.on('error', (err) => {
-    console.error(`❌ Redis connection error:\n ${err.message}`);
-})
-
-redis.on('close', () => {
-    console.log(`Redis connection closed`);
-})
+globalRedis.redisClient = redis;
 
 export default redis;
