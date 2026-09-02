@@ -1,4 +1,4 @@
-import redis from "../config/redis.config"
+import redis from "../config/redis.config.js"
 
 export const deleteKeysByPattern = async (pattern) => {
     const stream = redis.scanStream({
