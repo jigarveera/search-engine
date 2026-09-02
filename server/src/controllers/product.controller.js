@@ -7,6 +7,7 @@ const CACHE_TTL = process.env.CACHE_TTL
 
 export const createProductController = async (req, res) => {
     try {
+
         const { title, description, category, price, selling_price } = req.body;
 
         const product = new Product({
@@ -20,11 +21,21 @@ export const createProductController = async (req, res) => {
 
         await redis.del(`products:all`)
 
+        const cacheKey = `product:${product.product_id}`
+
+        await redis.set(
+            cacheKey,
+            JSON.stringify(product),
+            'EX',
+            CACHE_TTL
+        )
+
         res.status(201).json({
             success: true,
             message: `✔️ product created successfully`,
             product
         })
+
 
     } catch (error) {
         res.status(500).json({
@@ -37,11 +48,20 @@ export const createProductController = async (req, res) => {
 
 export const createProductsController = async (req, res) => {
     try {
+        const cacheKey = 'products:all';
+
         const products = req.body.products;
 
         const createProducts = await Product.insertMany(products);
 
-        await redis.del(`products:all`)
+        await redis.del(cacheKey);
+
+        await redis.set(
+            cacheKey,
+            JSON.stringify(createProducts),
+            'EX',
+            CACHE_TTL
+        )
 
         res.status(201).json({
             success: true,
@@ -203,17 +223,44 @@ export const deleteProductByIdController = async (req, res) => {
     }
 }
 
-// export const updateProductByIdController = async (req, res) => {
-//     try {
-//         const { id } = req.params;
+export const updateProductByIdController = async (req, res) => {
+    try {
+        const { id } = req.params;
 
-//         const updateProduct = await Product.findOneAndUpdate({ product_id: id}, req.body, { new: true })
+        const updateProduct = await Product.findOneAndUpdate({ product_id: id}, req.body, { new: true, runValidators: true })
 
-//     } catch (error) {
-//         res.status(500).json({
-//             success: false,
-//             message: `❌ Internal server error`,
-//             error: error.message,
-//         })
-//     }
-// }
+        if (!updateProduct) {
+            return res.status(404).json({
+                success: false,
+                message: `product with ${id} does not exist`,
+            
+            })
+        }
+
+        if (updateProduct) {
+            const cacheKey = `product:${id}`
+
+            await redis.del(`products:all`);
+            await redis.del(cacheKey);
+            await redis.set(
+                cacheKey,
+                JSON.stringify(updateProduct),
+                'EX',
+                CACHE_TTL
+            )
+
+            return res.status(201).json({
+                success: true,
+                message: 'product updated successfully',
+                product: updateProduct
+            })
+        }
+
+    } catch (error) {
+        res.status(500).json({
+            success: false,
+            message: `❌ Internal server error`,
+            error: error.message,
+        })
+    }
+}
