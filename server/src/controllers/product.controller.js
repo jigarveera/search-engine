@@ -1,5 +1,6 @@
 import Product from '../schema/product.schema.js';
 import redis from '../config/redis.config.js';
+import { deleteKeysByPattern } from '../services/cache-helper.service.js'
 import dotenv from 'dotenv';
 dotenv.config();
 
@@ -178,10 +179,13 @@ export const deleteAllProductsController = async (req, res) => {
 
         await redis.del(`products:all`);
 
+        const deletedCachceKeys = await deleteKeysByPattern(`product:*`)
+
         res.status(200).json({
             success: true,
             message: `✔️ all products deleted successfully`,
-            deletedCount: result.deletedCount
+            deletedCount: result.deletedCount,
+            deletedCachceKeys
         })
 
     } catch (error) {
