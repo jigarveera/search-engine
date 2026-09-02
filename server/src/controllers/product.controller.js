@@ -211,6 +211,7 @@ export const deleteProductByIdController = async (req, res) => {
         }
 
         await redis.del(`product:${id}`);
+        await redis.del(`products:all`);
 
         res.status(200).json({
             success: true,
